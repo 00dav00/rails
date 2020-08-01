@@ -131,8 +131,8 @@ module ActiveRecord
       # Executes insert +sql+ statement in the context of this connection using
       # +binds+ as the bind substitutes. +name+ is logged along with
       # the executed +sql+ statement.
-      def exec_insert(sql, name = nil, binds = [], pk = nil, sequence_name = nil)
-        sql, binds = sql_for_insert(sql, pk, binds)
+      def exec_insert(sql, name = nil, binds = [], pk = nil, sequence_name = nil, returning = [])
+        sql, binds = sql_for_insert(sql, pk, binds, returning)
         exec_query(sql, name, binds)
       end
 
@@ -166,10 +166,10 @@ module ActiveRecord
       #
       # If the next id was calculated in advance (as in Oracle), it should be
       # passed in as +id_value+.
-      def insert(arel, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
+      def insert(arel, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [], returning = [])
         sql, binds = to_sql_and_binds(arel, binds)
-        value = exec_insert(sql, name, binds, pk, sequence_name)
-        id_value || last_inserted_id(value)
+        value = exec_insert(sql, name, binds, pk, sequence_name, returning)
+        { 'id' => id_value }.merge(last_inserted_values(value))
       end
       alias create insert
 
@@ -536,7 +536,7 @@ module ActiveRecord
           exec_query(sql, name, binds, prepare: true)
         end
 
-        def sql_for_insert(sql, pk, binds)
+        def sql_for_insert(sql, pk, binds, _)
           [sql, binds]
         end
 
@@ -547,6 +547,12 @@ module ActiveRecord
         def single_value_from_rows(rows)
           row = rows.first
           row && row.first
+        end
+
+        def last_inserted_values(result)
+          return {} if result.rows.empty?
+
+          Hash[result.columns.zip(result.rows.first).map {|key, value| [key, value]}]
         end
 
         def arel_from_relation(relation)

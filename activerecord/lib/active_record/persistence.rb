@@ -355,6 +355,7 @@ module ActiveRecord
       def _insert_record(values) # :nodoc:
         primary_key = self.primary_key
         primary_key_value = nil
+        returning = self.returning_attributes.to_a
 
         if primary_key && Hash === values
           primary_key_value = values[primary_key]
@@ -372,7 +373,7 @@ module ActiveRecord
           im = arel_table.compile_insert(_substitute_values(values))
         end
 
-        connection.insert(im, "#{self} Create", primary_key || false, primary_key_value)
+        connection.insert(im, "#{self} Create", primary_key || false, primary_key_value, nil, [], returning)
       end
 
       def _update_record(values, constraints) # :nodoc:
@@ -941,11 +942,12 @@ module ActiveRecord
     def _create_record(attribute_names = self.attribute_names)
       attribute_names = attributes_for_create(attribute_names)
 
-      new_id = self.class._insert_record(
+      new_values = self.class._insert_record(
         attributes_with_values(attribute_names)
       )
 
-      self.id ||= new_id if @primary_key
+      self.id ||= new_values['id'] if @primary_key
+      self.assign_attributes(new_values.except('id'))
 
       @new_record = false
       @previously_new_record = true
