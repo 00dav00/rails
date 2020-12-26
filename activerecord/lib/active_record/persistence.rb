@@ -355,7 +355,7 @@ module ActiveRecord
       def _insert_record(values) # :nodoc:
         primary_key = self.primary_key
         primary_key_value = nil
-        returning = self.returning_attributes.to_a.dup
+        returning = returning_attributes.present? ? self.returning_attributes.to_a.dup : nil
 
         if primary_key && Hash === values
           primary_key_value = values[primary_key]
